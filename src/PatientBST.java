@@ -63,16 +63,19 @@ public class PatientBST {
      */
     public List<Patient> getAllPatients() {
         List<Patient> patients = new ArrayList<>();
-        inOrderTraversal(root, patients);
-        return patients;
-    }
-    
-    private void inOrderTraversal(Patient root, List<Patient> patients) {
-        if (root != null) {
-            inOrderTraversal(root.getLeft(), patients);
-            patients.add(root);
-            inOrderTraversal(root.getRight(), patients);
+        // Iterative in-order traversal to avoid deep recursion stack overflows
+        java.util.Deque<Patient> stack = new java.util.ArrayDeque<>();
+        Patient current = root;
+        while (current != null || !stack.isEmpty()) {
+            while (current != null) {
+                stack.push(current);
+                current = current.getLeft();
+            }
+            Patient node = stack.pop();
+            patients.add(node);
+            current = node.getRight();
         }
+        return patients;
     }
     
     /**

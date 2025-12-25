@@ -23,14 +23,16 @@ public class ReportGenerator {
     
     /**
      * Generates a patient report with sorted visit history.
+     * This variant includes optional visit plans to pull the latest diagnosis and treatment plan.
      */
-    public String generatePatientReport(Patient patient) {
+    public String generatePatientReport(Patient patient, List<VisitPlan> visitPlans) {
         if (patient == null) {
             return "Patient not found.";
         }
         
         StringBuilder report = new StringBuilder();
-        report.append("=== PATIENT REPORT ===\n");
+        report.append("PATIENT REPORT\n");
+        report.append("==============\n\n");
         report.append(patient.getPatientInfo());
         report.append("\nVisit Records (Sorted by Date):\n");
         
@@ -42,7 +44,40 @@ public class ReportGenerator {
             report.append("- ").append(visit).append("\n");
         }
         
+        // Latest diagnosis and treatment plan from visit plans
+        String latestDiagnosis = "";
+        String latestTreatment = "";
+        String latestPlanDate = "";
+        if (visitPlans != null && !visitPlans.isEmpty()) {
+            for (VisitPlan vp : visitPlans) {
+                String d = vp.getDiagnosis() != null ? vp.getDiagnosis().trim() : "";
+                String t = vp.getTreatmentPlan() != null ? vp.getTreatmentPlan().trim() : "";
+                String when = vp.getDate() != null ? vp.getDate() : ""; // YYYY-MM-DD lex-orderable
+                boolean hasInfo = (!d.isEmpty()) || (!t.isEmpty());
+                if (hasInfo) {
+                    // Prefer later date lexicographically
+                    if (latestPlanDate.isEmpty() || when.compareTo(latestPlanDate) >= 0) {
+                        latestPlanDate = when;
+                        latestDiagnosis = d;
+                        latestTreatment = t;
+                    }
+                }
+            }
+        }
+        
+        report.append("\nClinical Summary\n");
+        report.append("----------------\n");
+        report.append("Diagnosis: ").append(latestDiagnosis.isEmpty() ? "N/A" : latestDiagnosis).append("\n");
+        report.append("Treatment Plan:\n").append(latestTreatment.isEmpty() ? "N/A" : latestTreatment).append("\n");
+        
         return report.toString();
+    }
+    
+    /**
+     * Backward-compatible variant without visit plans.
+     */
+    public String generatePatientReport(Patient patient) {
+        return generatePatientReport(patient, null);
     }
     
     /**
@@ -234,4 +269,3 @@ public class ReportGenerator {
         }
     }
 }
-

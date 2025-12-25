@@ -65,6 +65,10 @@ public class HospitalFXApp extends Application {
     // Current view
     private String currentView = "view";
     
+    // Edit mode state
+    private boolean isEditMode = false;
+    private int editingPatientID = -1;
+    
     // Hospital color scheme
     private static final String PRIMARY_BLUE = "#2C5F8D";
     private static final String LIGHT_BLUE = "#4A90E2";
@@ -144,6 +148,7 @@ public class HospitalFXApp extends Application {
         Button addPatientBtn = createNavButton("Add Patient", "add");
         Button searchPatientBtn = createNavButton("Search Patient", "search");
         Button appointmentsBtn = createNavButton("Appointments", "appointments");
+        Button visitPlansBtn = createNavButton("Visit Plans", "visitplans");
         Button reportsBtn = createNavButton("Reports", "reports");
         
         Button exitBtn = createNavButton("Exit", "exit");
@@ -156,6 +161,7 @@ public class HospitalFXApp extends Application {
             addPatientBtn,
             searchPatientBtn,
             appointmentsBtn,
+            visitPlansBtn,
             reportsBtn,
             new Separator(),
             exitBtn
@@ -184,26 +190,48 @@ public class HospitalFXApp extends Application {
         
         // Hover effect
         btn.setOnMouseEntered(e -> {
-            btn.setStyle(
-                "-fx-background-color: #5BA3E8;" +
-                "-fx-background-radius: 8;" +
-                "-fx-text-fill: white;" +
-                "-fx-font-size: 14px;" +
-                "-fx-font-weight: bold;" +
-                "-fx-cursor: hand;"
-            );
+            if ("Exit".equals(text)) {
+                btn.setStyle(
+                    "-fx-background-color: " + ERROR_RED + ";" +
+                    "-fx-background-radius: 8;" +
+                    "-fx-text-fill: white;" +
+                    "-fx-font-size: 14px;" +
+                    "-fx-font-weight: bold;" +
+                    "-fx-cursor: hand;"
+                );
+            } else {
+                btn.setStyle(
+                    "-fx-background-color: #5BA3E8;" +
+                    "-fx-background-radius: 8;" +
+                    "-fx-text-fill: white;" +
+                    "-fx-font-size: 14px;" +
+                    "-fx-font-weight: bold;" +
+                    "-fx-cursor: hand;"
+                );
+            }
             addScaleAnimation(btn, 1.05);
         });
         
         btn.setOnMouseExited(e -> {
-            btn.setStyle(
-                "-fx-background-color: " + LIGHT_BLUE + ";" +
-                "-fx-background-radius: 8;" +
-                "-fx-text-fill: white;" +
-                "-fx-font-size: 14px;" +
-                "-fx-font-weight: bold;" +
-                "-fx-cursor: hand;"
-            );
+            if ("Exit".equals(text)) {
+                btn.setStyle(
+                    "-fx-background-color: " + ERROR_RED + ";" +
+                    "-fx-background-radius: 8;" +
+                    "-fx-text-fill: white;" +
+                    "-fx-font-size: 14px;" +
+                    "-fx-font-weight: bold;" +
+                    "-fx-cursor: hand;"
+                );
+            } else {
+                btn.setStyle(
+                    "-fx-background-color: " + LIGHT_BLUE + ";" +
+                    "-fx-background-radius: 8;" +
+                    "-fx-text-fill: white;" +
+                    "-fx-font-size: 14px;" +
+                    "-fx-font-weight: bold;" +
+                    "-fx-cursor: hand;"
+                );
+            }
             addScaleAnimation(btn, 1.0);
         });
         
@@ -231,6 +259,7 @@ public class HospitalFXApp extends Application {
             case "add": return "Add a new patient (Ctrl+A)";
             case "search": return "Search patients (Ctrl+F)";
             case "appointments": return "Manage appointments (Ctrl+P)";
+            case "visitplans": return "Manage visit plans (Ctrl+L)";
             case "reports": return "View reports (Ctrl+R)";
             default: return "";
         }
@@ -247,6 +276,9 @@ public class HospitalFXApp extends Application {
                 showViewPatients();
                 break;
             case "add":
+                // Enter add mode explicitly
+                isEditMode = false;
+                editingPatientID = -1;
                 showAddPatient();
                 break;
             case "search":
@@ -254,6 +286,9 @@ public class HospitalFXApp extends Application {
                 break;
             case "appointments":
                 showAppointments();
+                break;
+            case "visitplans":
+                showVisitPlans();
                 break;
             case "reports":
                 showReports();
@@ -442,28 +477,28 @@ public class HospitalFXApp extends Application {
         formGrid.setPadding(new Insets(20));
         
         // Patient ID
-        Label idLabel = createFormLabel("Patient ID *");
+        Label idLabel = createFormLabel("Patient ID");
         patientIDField = createFormTextField();
         patientIDField.setPromptText("Enter unique patient ID");
         formGrid.add(idLabel, 0, 0);
         formGrid.add(patientIDField, 1, 0);
         
         // Name
-        Label nameLabel = createFormLabel("Name *");
+        Label nameLabel = createFormLabel("Name");
         nameField = createFormTextField();
         nameField.setPromptText("Enter patient name");
         formGrid.add(nameLabel, 0, 1);
         formGrid.add(nameField, 1, 1);
         
         // Age
-        Label ageLabel = createFormLabel("Age *");
+        Label ageLabel = createFormLabel("Age");
         ageField = createFormTextField();
         ageField.setPromptText("Enter age (1-120)");
         formGrid.add(ageLabel, 0, 2);
         formGrid.add(ageField, 1, 2);
         
         // Contact
-        Label contactLabel = createFormLabel("Contact Info *");
+        Label contactLabel = createFormLabel("Contact Info");
         contactField = createFormTextField();
         contactField.setPromptText("Email or phone number");
         formGrid.add(contactLabel, 0, 3);
@@ -506,16 +541,26 @@ public class HospitalFXApp extends Application {
         HBox buttonBox = new HBox(15);
         buttonBox.setAlignment(Pos.CENTER);
         
-        Button saveBtn = createActionButton("💾 Save Patient", SUCCESS_GREEN);
-        saveBtn.setOnAction(e -> savePatient());
-        saveBtn.setTooltip(new Tooltip("Save patient (Ctrl+S)"));
+        Button saveBtn = createActionButton(isEditMode ? "✅ Update Patient" : "💾 Save Patient", SUCCESS_GREEN);
+        saveBtn.setOnAction(e -> {
+            if (isEditMode) {
+                updatePatient();
+            } else {
+                savePatient();
+            }
+        });
+        saveBtn.setTooltip(new Tooltip(isEditMode ? "Update patient (Ctrl+S)" : "Save patient (Ctrl+S)"));
         
         Button clearBtn = createActionButton("Clear Form", DARK_GRAY);
         clearBtn.setOnAction(e -> clearForm());
         clearBtn.setTooltip(new Tooltip("Clear all fields"));
         
         Button cancelBtn = createActionButton("Cancel", ERROR_RED);
-        cancelBtn.setOnAction(e -> showViewPatients());
+        cancelBtn.setOnAction(e -> {
+            isEditMode = false;
+            editingPatientID = -1;
+            showViewPatients();
+        });
         
         buttonBox.getChildren().addAll(saveBtn, clearBtn, cancelBtn);
         
@@ -659,6 +704,59 @@ public class HospitalFXApp extends Application {
     }
     
     /**
+     * Updates an existing patient (edit mode)
+     */
+    private void updatePatient() {
+        // Validate required fields (except ID which is fixed in edit mode)
+        if (nameField.getText().trim().isEmpty() ||
+            ageField.getText().isEmpty() ||
+            contactField.getText().trim().isEmpty()) {
+            
+            showError("Validation Error", "Please fill in all required fields (*)");
+            return;
+        }
+        
+        try {
+            int patientID = editingPatientID;
+            String name = nameField.getText().trim();
+            int age = Integer.parseInt(ageField.getText());
+            String contact = contactField.getText().trim();
+            
+            if (age < 1 || age > 120) {
+                showError("Invalid Age", "Age must be between 1 and 120");
+                return;
+            }
+            
+            Patient patient = system.findPatient(patientID);
+            if (patient == null) {
+                showError("Not Found", "Original patient not found for update.");
+                return;
+            }
+            
+            // Update fields
+            patient.setName(name);
+            patient.setAge(age);
+            patient.setContactInfo(contact);
+            
+            // Optionally add new medical notes if provided
+            if (diagnosisCombo.getValue() != null && !diagnosisCombo.getValue().isEmpty()) {
+                patient.getMedicalHistory().add("Diagnosis: " + diagnosisCombo.getValue());
+            }
+            if (medicalHistoryArea.getText() != null && !medicalHistoryArea.getText().trim().isEmpty()) {
+                patient.getMedicalHistory().add(medicalHistoryArea.getText().trim());
+            }
+            
+            showSuccess("Updated", "Patient updated successfully!");
+            isEditMode = false;
+            editingPatientID = -1;
+            refreshTable();
+            showViewPatients();
+        } catch (NumberFormatException e) {
+            showError("Invalid Input", "Please enter valid numeric values for Age");
+        }
+    }
+    
+    /**
      * Clears the form
      */
     private void clearForm() {
@@ -754,6 +852,236 @@ public class HospitalFXApp extends Application {
     }
     
     /**
+     * Shows visit plans view
+     */
+    private void showVisitPlans() {
+        VBox container = new VBox(20);
+        container.setPadding(new Insets(20));
+
+        Label title = createTitle("Visit Plans");
+
+        // Create form for new visit plan
+        GridPane form = new GridPane();
+        form.setHgap(15);
+        form.setVgap(10);
+        form.setPadding(new Insets(10));
+
+        Label pidLabel = createFormLabel("Patient ID");
+        TextField patientIdField = new TextField();
+        patientIdField.setPromptText("Enter Patient ID");
+        patientIdField.setPrefWidth(150);
+
+        Label dateLabel = createFormLabel("Date");
+        DatePicker datePicker = new DatePicker(LocalDate.now());
+        datePicker.setPrefWidth(160);
+
+        Label purposeLabel = createFormLabel("Purpose");
+        TextField purposeField = new TextField();
+        purposeField.setPromptText("Reason (e.g., Follow-up)");
+        purposeField.setPrefWidth(220);
+
+        Label doctorLabel = createFormLabel("Doctor");
+        TextField doctorField = new TextField();
+        doctorField.setPromptText("Doctor name");
+        doctorField.setPrefWidth(200);
+
+        final TableView<VisitPlan> plansTable = new TableView<>();
+        Button createBtn = createActionButton("Create Plan", SUCCESS_GREEN);
+        createBtn.setOnAction(e -> {
+            try {
+                int pid = Integer.parseInt(patientIdField.getText().trim());
+                String date = datePicker.getValue() != null ? datePicker.getValue().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) : "";
+                String purpose = purposeField.getText() != null ? purposeField.getText().trim() : "";
+                String doctor = doctorField.getText() != null ? doctorField.getText().trim() : "";
+                if (date.isEmpty() || purpose.isEmpty()) {
+                    showError("Validation Error", "Date and Purpose are required.");
+                    return;
+                }
+                VisitPlan vp = system.createVisitPlan(pid, date, purpose, doctor);
+                if (vp == null) {
+                    showError("Not Found", "Patient with ID " + pid + " not found.");
+                    return;
+                }
+                showSuccess("Created", "Visit plan created.");
+                // Refresh table
+                plansTable.getItems().setAll(system.getAllVisitPlans());
+            } catch (NumberFormatException ex) {
+                showError("Invalid Input", "Patient ID must be numeric.");
+            }
+        });
+
+        form.add(pidLabel, 0, 0);
+        form.add(patientIdField, 1, 0);
+        form.add(dateLabel, 2, 0);
+        form.add(datePicker, 3, 0);
+        form.add(purposeLabel, 0, 1);
+        form.add(purposeField, 1, 1, 3, 1);
+        form.add(doctorLabel, 0, 2);
+        form.add(doctorField, 1, 2);
+        form.add(createBtn, 3, 2);
+
+        // Table for visit plans
+        plansTable.setStyle("-fx-background-color: white; -fx-background-radius: 10;");
+
+        TableColumn<VisitPlan, Integer> idCol = new TableColumn<>("ID");
+        idCol.setCellValueFactory(new PropertyValueFactory<>("planID"));
+        idCol.setPrefWidth(70);
+
+        TableColumn<VisitPlan, String> patientCol = new TableColumn<>("Patient");
+        patientCol.setCellValueFactory(cellData -> {
+            Patient p = cellData.getValue().getPatient();
+            return new javafx.beans.property.SimpleStringProperty(p != null ? p.getName() : "N/A");
+        });
+        patientCol.setPrefWidth(180);
+
+        TableColumn<VisitPlan, String> dateCol = new TableColumn<>("Date");
+        dateCol.setCellValueFactory(new PropertyValueFactory<>("date"));
+        dateCol.setPrefWidth(120);
+
+        TableColumn<VisitPlan, String> purposeCol = new TableColumn<>("Purpose");
+        purposeCol.setCellValueFactory(new PropertyValueFactory<>("purpose"));
+        purposeCol.setPrefWidth(240);
+
+        TableColumn<VisitPlan, String> doctorCol = new TableColumn<>("Doctor");
+        doctorCol.setCellValueFactory(new PropertyValueFactory<>("doctor"));
+        doctorCol.setPrefWidth(160);
+
+        TableColumn<VisitPlan, String> statusCol = new TableColumn<>("Status");
+        statusCol.setCellValueFactory(new PropertyValueFactory<>("status"));
+        statusCol.setPrefWidth(110);
+
+        TableColumn<VisitPlan, String> diagCol = new TableColumn<>("Diagnosis");
+        diagCol.setCellValueFactory(new PropertyValueFactory<>("diagnosis"));
+        diagCol.setPrefWidth(220);
+
+        TableColumn<VisitPlan, String> treatCol = new TableColumn<>("Treatment Plan");
+        treatCol.setCellValueFactory(new PropertyValueFactory<>("treatmentPlan"));
+        treatCol.setPrefWidth(260);
+
+        TableColumn<VisitPlan, Void> actionCol = new TableColumn<>("Actions");
+        actionCol.setPrefWidth(520);
+        actionCol.setCellFactory(param -> new TableCell<VisitPlan, Void>() {
+            private final Button completeBtn = new Button("Complete");
+            private final Button cancelBtn = new Button("Cancel");
+            private final Button setDiagBtn = new Button("Set Diagnosis");
+            private final Button setTreatBtn = new Button("Set Treatment");
+            private final Button saveReportBtn = new Button("Save Report");
+            private final Button viewReportBtn = new Button("View Report");
+            {
+                completeBtn.setStyle("-fx-background-color: " + SUCCESS_GREEN + "; -fx-text-fill: white; -fx-background-radius: 5;");
+                cancelBtn.setStyle("-fx-background-color: " + ERROR_RED + "; -fx-text-fill: white; -fx-background-radius: 5;");
+                setDiagBtn.setStyle("-fx-background-color: " + LIGHT_BLUE + "; -fx-text-fill: white; -fx-background-radius: 5;");
+                setTreatBtn.setStyle("-fx-background-color: " + LIGHT_BLUE + "; -fx-text-fill: white; -fx-background-radius: 5;");
+                saveReportBtn.setStyle("-fx-background-color: " + LIGHT_BLUE + "; -fx-text-fill: white; -fx-background-radius: 5;");
+                viewReportBtn.setStyle("-fx-background-color: " + DARK_GRAY + "; -fx-text-fill: white; -fx-background-radius: 5;");
+
+                completeBtn.setOnAction(e -> {
+                    VisitPlan vp = getTableView().getItems().get(getIndex());
+                    if (vp != null) {
+                        system.setVisitPlanStatus(vp.getPlanID(), "Completed");
+                        plansTable.getItems().setAll(system.getAllVisitPlans());
+                    }
+                });
+                cancelBtn.setOnAction(e -> {
+                    VisitPlan vp = getTableView().getItems().get(getIndex());
+                    if (vp != null) {
+                        system.setVisitPlanStatus(vp.getPlanID(), "Cancelled");
+                        plansTable.getItems().setAll(system.getAllVisitPlans());
+                    }
+                });
+                setDiagBtn.setOnAction(e -> {
+                    VisitPlan vp = getTableView().getItems().get(getIndex());
+                    if (vp != null) {
+                        TextInputDialog dialog = new TextInputDialog(vp.getDiagnosis());
+                        dialog.setTitle("Set Diagnosis");
+                        dialog.setHeaderText(null);
+                        dialog.setContentText("Diagnosis:");
+                        dialog.showAndWait().ifPresent(val -> {
+                            system.updateVisitPlanReport(vp.getPlanID(), val, null, null);
+                            plansTable.getItems().setAll(system.getAllVisitPlans());
+                        });
+                    }
+                });
+                setTreatBtn.setOnAction(e -> {
+                    VisitPlan vp = getTableView().getItems().get(getIndex());
+                    if (vp != null) {
+                        Dialog<ButtonType> dialog = new Dialog<>();
+                        dialog.setTitle("Set Treatment Plan");
+                        GridPane gp = new GridPane();
+                        gp.setHgap(10); gp.setVgap(10); gp.setPadding(new Insets(10));
+                        TextArea treatArea = new TextArea(vp.getTreatmentPlan());
+                        treatArea.setPromptText("Treatment plan...");
+                        treatArea.setPrefRowCount(5);
+                        gp.add(new Label("Treatment Plan"), 0, 0);
+                        gp.add(treatArea, 1, 0);
+                        dialog.getDialogPane().setContent(gp);
+                        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+                        dialog.showAndWait().ifPresent(bt -> {
+                            if (bt == ButtonType.OK) {
+                                system.updateVisitPlanReport(vp.getPlanID(), null, treatArea.getText(), null);
+                                plansTable.getItems().setAll(system.getAllVisitPlans());
+                            }
+                        });
+                    }
+                });
+                saveReportBtn.setOnAction(e -> {
+                    VisitPlan vp = getTableView().getItems().get(getIndex());
+                    if (vp != null) {
+                        // Prompt to enter Diagnosis, Treatment, and Note
+                        Dialog<ButtonType> dialog = new Dialog<>();
+                        dialog.setTitle("Save Visit Report");
+                        GridPane gp = new GridPane();
+                        gp.setHgap(10); gp.setVgap(10); gp.setPadding(new Insets(10));
+                        TextField diagField = new TextField(vp.getDiagnosis());
+                        diagField.setPromptText("Diagnosis");
+                        TextArea treatArea = new TextArea(vp.getTreatmentPlan());
+                        treatArea.setPromptText("Treatment plan..."); treatArea.setPrefRowCount(4);
+                        TextArea noteArea = new TextArea(vp.getDoctorNote());
+                        noteArea.setPromptText("Doctor's note..."); noteArea.setPrefRowCount(3);
+                        gp.add(new Label("Diagnosis"), 0, 0); gp.add(diagField, 1, 0);
+                        gp.add(new Label("Treatment Plan"), 0, 1); gp.add(treatArea, 1, 1);
+                        gp.add(new Label("Doctor Note"), 0, 2); gp.add(noteArea, 1, 2);
+                        dialog.getDialogPane().setContent(gp);
+                        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+                        dialog.showAndWait().ifPresent(bt -> {
+                            if (bt == ButtonType.OK) {
+                                system.updateVisitPlanReport(vp.getPlanID(), diagField.getText(), treatArea.getText(), noteArea.getText());
+                                plansTable.getItems().setAll(system.getAllVisitPlans());
+                            }
+                        });
+                    }
+                });
+                viewReportBtn.setOnAction(e -> {
+                    VisitPlan vp = getTableView().getItems().get(getIndex());
+                    if (vp != null) {
+                        String content = system.getVisitPlanFormattedReport(vp.getPlanID());
+                        showReportDialog("Visit Plan Report", content);
+                    }
+                });
+            }
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setGraphic(null);
+                } else {
+                    HBox box = new HBox(8);
+                    box.getChildren().addAll(completeBtn, cancelBtn, setDiagBtn, setTreatBtn, saveReportBtn, viewReportBtn);
+                    setGraphic(box);
+                }
+            }
+        });
+
+        plansTable.getColumns().addAll(idCol, patientCol, dateCol, purposeCol, doctorCol, statusCol, diagCol, treatCol, actionCol);
+        plansTable.getItems().addAll(system.getAllVisitPlans());
+
+        container.getChildren().addAll(title, form, plansTable);
+        VBox.setVgrow(plansTable, Priority.ALWAYS);
+        
+        animateContentChange(container);
+    }
+    
+    /**
      * Shows reports view
      */
     private void showReports() {
@@ -762,22 +1090,29 @@ public class HospitalFXApp extends Application {
         
         Label title = createTitle("Reports");
         
+        // Input for patient report
+        TextField reportPatientIDField = new TextField();
+        reportPatientIDField.setPromptText("Enter Patient ID for report");
+        reportPatientIDField.setPrefWidth(300);
+        reportPatientIDField.setStyle("-fx-background-color: white; -fx-background-radius: 5; -fx-padding: 8px;");
+        
         VBox reportsBox = new VBox(15);
         reportsBox.setSpacing(15);
         
         Button patientReportBtn = createActionButton("👤 Patient Report", LIGHT_BLUE);
         patientReportBtn.setPrefWidth(300);
         patientReportBtn.setOnAction(e -> {
-            if (searchField != null && !searchField.getText().isEmpty()) {
-                try {
-                    int id = Integer.parseInt(searchField.getText());
-                    String report = system.generatePatientReport(id);
-                    showReportDialog("Patient Report", report);
-                } catch (NumberFormatException ex) {
-                    showError("Invalid ID", "Please enter a valid Patient ID");
-                }
-            } else {
-                showError("No Patient Selected", "Please search for a patient first");
+            String input = reportPatientIDField.getText() != null ? reportPatientIDField.getText().trim() : "";
+            if (input.isEmpty()) {
+                showError("No Patient ID", "Please enter a Patient ID first");
+                return;
+            }
+            try {
+                int id = Integer.parseInt(input);
+                String report = system.generatePatientReport(id);
+                showReportDialog("Patient Report", report);
+            } catch (NumberFormatException ex) {
+                showError("Invalid ID", "Please enter a valid numeric Patient ID");
             }
         });
         
@@ -794,9 +1129,27 @@ public class HospitalFXApp extends Application {
             String report = system.generateRevenueReport();
             showReportDialog("Revenue Report", report);
         });
+
+        Button importCsvBtn = createActionButton("📥 Import CSV", PRIMARY_BLUE);
+        importCsvBtn.setPrefWidth(300);
+        importCsvBtn.setOnAction(e -> {
+            TextInputDialog dialog = new TextInputDialog("d:/Important/DATAStructure project/healthcare_dataset.csv");
+            dialog.setTitle("Import CSV");
+            dialog.setHeaderText(null);
+            dialog.setContentText("CSV Path:");
+            dialog.showAndWait().ifPresent(path -> {
+                try {
+                    int count = CsvImporter.importHealthcareCsv(system, path);
+                    showSuccess("Import Complete", "Imported " + count + " patients from CSV.");
+                    refreshTable();
+                } catch (Exception ex) {
+                    showError("Import Failed", ex.getMessage());
+                }
+            });
+        });
         
-        reportsBox.getChildren().addAll(patientReportBtn, appointmentReportBtn, revenueReportBtn);
-        container.getChildren().addAll(title, reportsBox);
+        reportsBox.getChildren().addAll(patientReportBtn, appointmentReportBtn, revenueReportBtn, importCsvBtn);
+        container.getChildren().addAll(title, reportPatientIDField, reportsBox);
         
         animateContentChange(container);
     }
@@ -827,15 +1180,17 @@ public class HospitalFXApp extends Application {
     private void editPatient(int patientID) {
         Patient patient = system.findPatient(patientID);
         if (patient != null) {
+            // Enter edit mode and reuse the form
+            isEditMode = true;
+            editingPatientID = patientID;
             showAddPatient(); // Reuse add form
             patientIDField.setText(String.valueOf(patient.getPatientID()));
             patientIDField.setEditable(false);
             nameField.setText(patient.getName());
             ageField.setText(String.valueOf(patient.getAge()));
             contactField.setText(patient.getContactInfo());
-            
-            // Update button to say "Update" instead of "Save"
-            // This would require storing button reference or recreating form
+        } else {
+            showError("Not Found", "Patient with ID " + patientID + " not found");
         }
     }
     
@@ -861,30 +1216,51 @@ public class HospitalFXApp extends Application {
      * Refreshes the patient table
      */
     private void refreshTable() {
-        patientData.clear();
-        List<Patient> patients = system.getAllPatients();
-        
-        for (Patient p : patients) {
-            String diagnosis = p.getMedicalHistory().isEmpty() ? 
-                "No diagnosis" : p.getMedicalHistory().get(0);
-            
-            // Get appointment date if exists
-            String appointmentDate = "No appointment";
+        try {
+            if (patientData == null) {
+                patientData = FXCollections.observableArrayList();
+            }
+            patientData.clear();
+
+            List<Patient> patients = system.getAllPatients();
+
+            // Build a patient -> appointment date map once (avoid O(P*A))
+            java.util.Map<Integer, String> apptMap = new java.util.HashMap<>();
             for (Appointment apt : system.getAllAppointments()) {
-                if (apt.getPatient() != null && apt.getPatient().getPatientID() == p.getPatientID()) {
-                    appointmentDate = apt.getDate();
-                    break;
+                if (apt != null && apt.getPatient() != null) {
+                    int pid = apt.getPatient().getPatientID();
+                    String date = apt.getDate();
+                    if (date != null && !date.isEmpty()) {
+                        // keep first encountered date per patient
+                        apptMap.putIfAbsent(pid, date);
+                    }
                 }
             }
-            
-            patientData.add(new PatientTableModel(
-                p.getPatientID(),
-                p.getName(),
-                p.getAge(),
-                diagnosis,
-                appointmentDate,
-                p.getContactInfo()
-            ));
+
+            for (Patient p : patients) {
+                // Extract the first Diagnosis entry from medical history
+                String diagnosis = "No diagnosis";
+                for (String entry : p.getMedicalHistory()) {
+                    if (entry != null && entry.toLowerCase().startsWith("diagnosis")) {
+                        String cleaned = entry.replaceFirst("(?i)diagnosis:\\s*", "").trim();
+                        diagnosis = cleaned.isEmpty() ? "No diagnosis" : cleaned;
+                        break;
+                    }
+                }
+
+                String appointmentDate = apptMap.getOrDefault(p.getPatientID(), "No appointment");
+
+                patientData.add(new PatientTableModel(
+                    p.getPatientID(),
+                    p.getName(),
+                    p.getAge(),
+                    diagnosis,
+                    appointmentDate,
+                    p.getContactInfo()
+                ));
+            }
+        } catch (Exception ex) {
+            showError("Refresh Failed", ex.getMessage() != null ? ex.getMessage() : String.valueOf(ex));
         }
     }
     
@@ -912,12 +1288,22 @@ public class HospitalFXApp extends Application {
             () -> switchView("search")
         );
         
-        // Ctrl+S: Save (when in add form)
+        // Ctrl+L: Visit Plans
+        scene.getAccelerators().put(
+            new KeyCodeCombination(KeyCode.L, KeyCombination.CONTROL_DOWN),
+            () -> switchView("visitplans")
+        );
+        
+        // Ctrl+S: Save or Update (when in add/edit form)
         scene.getAccelerators().put(
             new KeyCodeCombination(KeyCode.S, KeyCombination.CONTROL_DOWN),
             () -> {
                 if ("add".equals(currentView)) {
-                    savePatient();
+                    if (isEditMode) {
+                        updatePatient();
+                    } else {
+                        savePatient();
+                    }
                 }
             }
         );

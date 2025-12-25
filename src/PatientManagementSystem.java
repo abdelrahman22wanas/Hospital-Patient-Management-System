@@ -20,6 +20,10 @@ public class PatientManagementSystem {
     private ReportGenerator reportGenerator;
     private int nextAppointmentID;
     
+    // Visit Plans
+    private List<VisitPlan> visitPlans;
+    private int nextVisitPlanID;
+    
     public PatientManagementSystem() {
         this.patientList = new PatientBST();
         this.appointmentQueue = new LinkedList<>();
@@ -27,6 +31,10 @@ public class PatientManagementSystem {
         this.billingRecords = new ArrayList<>();
         this.reportGenerator = new ReportGenerator();
         this.nextAppointmentID = 1;
+        
+        // Initialize visit plans
+        this.visitPlans = new ArrayList<>();
+        this.nextVisitPlanID = 1;
     }
     
     /**
@@ -177,7 +185,8 @@ public class PatientManagementSystem {
      */
     public String generatePatientReport(int patientID) {
         Patient patient = findPatient(patientID);
-        return reportGenerator.generatePatientReport(patient);
+        List<VisitPlan> plans = getVisitPlansForPatient(patientID);
+        return reportGenerator.generatePatientReport(patient, plans);
     }
     
     /**
@@ -208,6 +217,92 @@ public class PatientManagementSystem {
             default:
                 return "Invalid report type.";
         }
+    }
+
+    // Visit Plan management
+    public VisitPlan createVisitPlan(int patientID, String date, String purpose, String doctor) {
+        Patient patient = findPatient(patientID);
+        if (patient == null) {
+            return null;
+        }
+        VisitPlan plan = new VisitPlan(nextVisitPlanID++, patient, date, purpose, doctor);
+        plan.markPlanned();
+        visitPlans.add(plan);
+        return plan;
+    }
+    
+    public List<VisitPlan> getAllVisitPlans() {
+        return visitPlans;
+    }
+    
+    public List<VisitPlan> getVisitPlansForPatient(int patientID) {
+        List<VisitPlan> result = new ArrayList<>();
+        for (VisitPlan vp : visitPlans) {
+            if (vp.getPatient() != null && vp.getPatient().getPatientID() == patientID) {
+                result.add(vp);
+            }
+        }
+        return result;
+    }
+    
+    public boolean setVisitPlanStatus(int planID, String status) {
+        VisitPlan plan = findVisitPlan(planID);
+        if (plan == null) return false;
+        if (status == null) return false;
+        switch (status) {
+            case "Planned":
+                plan.markPlanned();
+                break;
+            case "Completed":
+                plan.markCompleted();
+                // Add visit date to patient's visit records
+                if (plan.getPatient() != null) {
+                    String record = plan.getDate() != null ? plan.getDate() : "";
+                    if (record != null && !record.isEmpty()) {
+                        plan.getPatient().addVisitRecord(record);
+                    }
+                }
+                break;
+            case "Cancelled":
+                plan.markCancelled();
+                break;
+            default:
+                plan.setStatus(status);
+        }
+        return true;
+    }
+    
+    private VisitPlan findVisitPlan(int planID) {
+        for (VisitPlan vp : visitPlans) {
+            if (vp.getPlanID() == planID) return vp;
+        }
+        return null;
+    }
+
+    // Visit Plan report updates
+    public boolean updateVisitPlanReport(int planID, String diagnosis, String treatmentPlan, String doctorNote) {
+        VisitPlan vp = findVisitPlan(planID);
+        if (vp == null) return false;
+        if (diagnosis != null) vp.setDiagnosis(diagnosis);
+        if (treatmentPlan != null) vp.setTreatmentPlan(treatmentPlan);
+        if (doctorNote != null) vp.setDoctorNote(doctorNote);
+        return true;
+    }
+
+    public String getVisitPlanFormattedReport(int planID) {
+        VisitPlan vp = findVisitPlan(planID);
+        return vp != null ? vp.getFormattedReport() : "Visit plan not found.";
+    }
+
+    // Helpers to access plan report fields
+    public String getVisitPlanDiagnosis(int planID) {
+        VisitPlan vp = findVisitPlan(planID);
+        return vp != null ? vp.getDiagnosis() : null;
+    }
+
+    public String getVisitPlanTreatmentPlan(int planID) {
+        VisitPlan vp = findVisitPlan(planID);
+        return vp != null ? vp.getTreatmentPlan() : null;
     }
 }
 

@@ -13,6 +13,15 @@ The Patient Management System organizes patient records and manages appointment 
 3. **Waiting List** - Priority Queue implementation (older patients have higher priority)
 4. **Billing System** - Track billing and payment history
 5. **Report Generation** - Generate patient, appointment, and revenue reports with sorting algorithms
+6. **Visit Plans (New)**
+   - Create and manage planned visits per patient
+   - Track status: Planned, Completed, Cancelled
+   - Add Diagnosis, Treatment Plan, and Doctor Notes to each plan
+   - Completing a plan automatically adds the plan date to the patient’s Visit Records
+7. **CSV Import (New)**
+   - Import large healthcare datasets from CSV into patients, including billing
+   - Missing values are stored as `N/A`
+   - Medical history auto-populated (Gender, Blood Type, Diagnosis, Doctor, Hospital, Insurance, Room, Admission Type, Discharge Date, Medication, Test Results)
 
 ### GUI Features
 - ✅ **Modern JavaFX GUI** - Professional interface with sidebar navigation, tables, and forms
@@ -20,6 +29,9 @@ The Patient Management System organizes patient records and manages appointment 
 - ✅ **Smart Forms** - Validation, auto-save, and date pickers
 - ✅ **Real-time Search** - Filter patients as you type
 - ✅ **Keyboard Shortcuts** - Full keyboard navigation support
+- ✅ **Visit Plans View (New)** - Create plans, set diagnosis/treatment, save/view report, complete/cancel
+- ✅ **Import CSV Button (New)** - In Reports view, one-click import of `healthcare_dataset.csv`
+- ✅ **UI Polish** - Exit button stays red; asterisks removed from labels
 
 ## Project Structure
 ```
@@ -91,11 +103,34 @@ This will run the JavaFX GUI using Maven.
 1. Launch the application using `mvn javafx:run` or `run-javafx.bat`
 2. Use the sidebar navigation to access features:
    - **View Patients**: Table with search, sort, and edit/delete actions
-   - **Add Patient**: Form with validation and auto-save
+   - **Add Patient**: Form with validation
    - **Search Patient**: Find patients by ID
    - **Appointments**: View scheduled appointments
-   - **Reports**: Generate various reports
-3. Keyboard shortcuts: Ctrl+V (View), Ctrl+A (Add), Ctrl+F (Search), etc.
+   - **Visit Plans (New)**:
+     - Create a plan for an existing patient ID
+     - Actions per plan: Set Diagnosis, Set Treatment, Save Report (Diagnosis + Treatment + Doctor Note), View Report, Complete/Cancel
+     - When Completed, the plan date is added to the patient’s Visit Records
+   - **Reports**:
+     - Patient Report: shows patient info, Visit Records (sorted), and Clinical Summary (Diagnosis/Treatment from latest visit plan)
+     - Appointment Report: sorted appointments + statistics
+     - Revenue Report: outstanding totals across patients
+     - Import CSV (New): import `healthcare_dataset.csv`
+3. Keyboard shortcuts: Ctrl+V (View), Ctrl+A (Add), Ctrl+F (Search), Ctrl+L (Visit Plans), Ctrl+S (Save on forms), F5 (Refresh patients table)
+
+### CSV Import
+- File: `healthcare_dataset.csv` (place at project root or provide a full path)
+- Path prompt appears under Reports -> Import CSV (pre-filled to the root CSV)
+- On import:
+  - New patients are created with generated IDs (10000+row)
+  - Names normalized to Title Case, contacts set from Insurance or Hospital (or N/A)
+  - Medical history populated from CSV columns
+  - Discharge Date adds a Visit Records entry
+  - Billing Amount added (negative values clamped to 0)
+  - Missing/empty values stored as `N/A`
+
+### Patient Report
+- Sections: Patient Info, Visit Records (sorted by date), Clinical Summary
+- Clinical Summary sources Diagnosis and Treatment Plan from the latest visit plan
 
 ## GUI Features
 
@@ -113,6 +148,7 @@ This will run the JavaFX GUI using Maven.
 
 ## Data Structures Used
 - **Binary Search Tree (BST)** - For patient storage and search
+  - In-order traversal implemented iteratively to prevent stack overflows on large/skewed trees (after big imports)
 - **Priority Queue** - For waiting list management
 - **Queue** - For appointment management
 - **ArrayList** - For various collections
@@ -120,6 +156,12 @@ This will run the JavaFX GUI using Maven.
 ## Sorting Algorithms
 - **Merge Sort** - Used for sorting appointments and billing records
 - **Quick Sort** - Used for sorting visit records
+
+## Performance & Stability Improvements
+- Replaced recursive BST traversal with an iterative approach to avoid stack overflows after large imports
+- Optimized patients table refresh by pre-building a `patientID -> appointmentDate` map (O(P + A))
+- Diagnosis column now parses medical history for the first `Diagnosis:` entry (import-friendly)
+- Robust error dialogs on refresh failures (View Patients)
 
 ## Notes
 - Remember to add your names and IDs in the comment section at the top of each Java file before submission
